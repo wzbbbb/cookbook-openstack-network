@@ -317,14 +317,24 @@ when 'midonet'
 when 'ml2'
 
   template_file = '/etc/neutron/plugins/ml2/ml2_conf.ini'
+  if node['openstack']['network']['openvswitch']['local_ip_interface'].nil?
+    local_ip = node['openstack']['network']['openvswitch']['local_ip']
+  else
+    local_ip = address_for node['openstack']['network']['openvswitch']['local_ip_interface']
+  end
+
 
   template template_file do
     source 'plugins/ml2/ml2_conf.ini.erb'
     owner node['openstack']['network']['platform']['user']
     group node['openstack']['network']['platform']['group']
     mode 00644
+    variables(
+    local_ip: local_ip
+    )
 
     notifies :restart, 'service[neutron-server]', :delayed
+
   end
 
 when 'nec'
@@ -400,6 +410,19 @@ when 'ryu'
 
 else
   Chef::Log.fatal("Main plugin #{main_plugin}is not supported")
+end
+
+directory "/etc/neutron/plugins/openvswitch" do
+  owner node['openstack']['network']['platform']['user']
+  group node['openstack']['network']['platform']['group']
+  mode 00700
+end
+
+link "/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini" do
+  to template_file
+  owner node['openstack']['network']['platform']['user']
+  group node['openstack']['network']['platform']['group']
+  action :create
 end
 
 link '/etc/neutron/plugin.ini' do
